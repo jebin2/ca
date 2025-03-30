@@ -111,7 +111,7 @@
 		</div>
 		<div class="slider-container">
 			<div>SPEED</div>
-			<input type="range" id="speedSlider" min="1" max="30" value="10">
+			<input type="range" id="speedSlider" min="1" max="30" value="20">
 			<div class="slider-label">
 				<span>Slow</span>
 				<span>Fast</span>
@@ -211,7 +211,7 @@
 
 			// Add speed slider
 			document.getElementById('speedSlider').addEventListener('input', (e) => {
-				updateInterval = parseInt(e.target.value);
+				updateInterval = 30-parseInt(e.target.value);
 			});
 
 			// Initial grid randomization with a small chance of being alive
@@ -253,7 +253,7 @@
 			background(0, 10, 0, 240);
 
 			// Draw digital rain in the background
-			drawDigitalRain();
+			//drawDigitalRain();
 
 			// Draw grid
 			for (let i = 0; i < cols; i++) {
