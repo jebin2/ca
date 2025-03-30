@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Conway's Game of Life - Matrix Theme</title>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.min.js"></script>
+	<style>
+		body {
+			margin: 0;
+			padding: 0;
+			background-color: #000;
+			color: #00FF41;
+			font-family: 'Courier New', monospace;
+			overflow: hidden;
+		}
+
+		#instructions {
+			position: absolute;
+			top: 10px;
+			left: 10px;
+			background-color: rgba(0, 0, 0, 0.7);
+			border: 1px solid #00FF41;
+			padding: 10px;
+			font-size: 14px;
+			width: 280px;
+			z-index: 100;
+		}
+
+		h2 {
+			margin-top: 0;
+			text-align: center;
+			color: #00FF41;
+			text-shadow: 0 0 5px #00FF41;
+		}
+
+		button {
+			background-color: #000;
+			color: #00FF41;
+			border: 1px solid #00FF41;
+			padding: 5px 10px;
+			margin: 5px;
+			cursor: pointer;
+			font-family: 'Courier New', monospace;
+			transition: all 0.3s;
+		}
+
+		button:hover {
+			background-color: #00FF41;
+			color: #000;
+		}
+
+		.controls {
+			text-align: center;
+			margin-top: 10px;
+		}
+
+		.patterns {
+			display: flex;
+			flex-wrap: wrap;
+			justify-content: space-between;
+			margin-top: 10px;
+		}
+
+		.patterns button {
+			font-size: 10px;
+			margin: 2px;
+		}
+
+		.rules {
+			margin-top: 10px;
+			border-top: 1px solid #00FF41;
+			padding-top: 5px;
+		}
+
+		#speedSlider {
+			width: 100%;
+			margin-top: 10px;
+			background: #000;
+			accent-color: #00FF41;
+		}
+
+		.slider-container {
+			margin-top: 10px;
+			text-align: center;
+		}
+
+		.slider-label {
+			display: flex;
+			justify-content: space-between;
+			margin-top: 5px;
+		}
+	</style>
+</head>
+
+<body>
+	<div id="instructions">
+		<h2>JOHN CONWAY'S GAME OF LIFE</h2>
+		<div class="controls">
+			<button id="pauseBtn">PAUSE</button>
+			<button id="clearBtn">CLEAR</button>
+			<button id="randomBtn">RANDOM</button>
+		</div>
+		<div class="patterns">
+			<button id="gliderBtn">GLIDER</button>
+			<button id="blinkerBtn">BLINKER</button>
+			<button id="blockBtn">BLOCK</button>
+			<button id="gliderGunBtn">GOSPER GUN</button>
+			<button id="pulsarBtn">PULSAR</button>
+		</div>
+		<div class="slider-container">
+			<div>SPEED</div>
+			<input type="range" id="speedSlider" min="1" max="30" value="10">
+			<div class="slider-label">
+				<span>Slow</span>
+				<span>Fast</span>
+			</div>
+		</div>
+		<div class="rules">
+			<p><span style="color:#00DD41">BIRTH:</span> Dead cell with exactly 3 live neighbors becomes alive</p>
+			<p><span style="color:#008822">SURVIVAL:</span> Live cell with 2 or 3 live neighbors survives</p>
+			<p><span style="color:#FF3300">DEATH:</span> Live cell with <4 or>3 live neighbors dies</p>
+			<p>Click on the grid to toggle cells</p>
+		</div>
+	</div>
+
+	<script>
+		let grid;
+		let cols, rows;
+		let resolution = 10;
+		let isPaused = false;
+		let digitalRain = [];
+		let matrixChars = ['0', '1'];
+		let frameCount = 0;
+		let canvas;
+
+		// Pattern presets
+		const patterns = {
+			glider: [
+				[0, 1, 0],
+				[0, 0, 1],
+				[1, 1, 1]
+			],
+			blinker: [
+				[0, 0, 0],
+				[1, 1, 1],
+				[0, 0, 0]
+			],
+			block: [
+				[1, 1],
+				[1, 1]
+			],
+			gliderGun: [
+				[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+				[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+				[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
+				[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
+				[1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+				[1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+				[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+				[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+				[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+			],
+			pulsar: [
+				[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+				[0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0],
+				[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+				[0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0],
+				[0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0],
+				[0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0],
+				[0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0],
+				[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+				[0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0],
+				[0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0],
+				[0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0],
+				[0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0],
+				[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+				[0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0],
+				[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+			]
+		};
+		let updateInterval = 10;
+
+		function setup() {
+			canvas = createCanvas(windowWidth, windowHeight);
+			canvas.position(0, 0);
+			cols = floor(width / resolution);
+			rows = floor(height / resolution);
+			grid = make2DArray(cols, rows);
+
+			// Initialize digital rain
+			for (let i = 0; i < width / 20; i++) {
+				digitalRain.push({
+					x: random(width),
+					y: random(-500, 0),
+					length: random(5, 30),
+					speed: random(5, 15)
+				});
+			}
+
+			// Add event listeners to buttons
+			document.getElementById('pauseBtn').addEventListener('click', togglePause);
+			document.getElementById('clearBtn').addEventListener('click', clearGrid);
+			document.getElementById('randomBtn').addEventListener('click', () => randomizeGrid(0.3)); // Fixed: Pass density parameter
+			document.getElementById('gliderBtn').addEventListener('click', () => addPattern(patterns.glider));
+			document.getElementById('blinkerBtn').addEventListener('click', () => addPattern(patterns.blinker));
+			document.getElementById('blockBtn').addEventListener('click', () => addPattern(patterns.block));
+			document.getElementById('gliderGunBtn').addEventListener('click', () => addPattern(patterns.gliderGun));
+			document.getElementById('pulsarBtn').addEventListener('click', () => addPattern(patterns.pulsar));
+
+			// Add speed slider
+			document.getElementById('speedSlider').addEventListener('input', (e) => {
+				updateInterval = parseInt(e.target.value);
+			});
+
+			// Initial grid randomization with a small chance of being alive
+			randomizeGrid(0.1);
+		}
+
+		function windowResized() {
+			resizeCanvas(windowWidth, windowHeight);
+
+			// Preserve the current state when resizing
+			let oldGrid = grid;
+			let oldCols = cols;
+			let oldRows = rows;
+
+			// Update grid dimensions
+			cols = floor(width / resolution);
+			rows = floor(height / resolution);
+
+			// Create new grid with updated dimensions
+			grid = make2DArray(cols, rows);
+
+			// Copy over the old states where they fit
+			for (let i = 0; i < min(cols, oldCols); i++) {
+				for (let j = 0; j < min(rows, oldRows); j++) {
+					grid[i][j] = oldGrid[i][j];
+				}
+			}
+		}
+
+		function make2DArray(cols, rows) {
+			let arr = new Array(cols);
+			for (let i = 0; i < cols; i++) {
+				arr[i] = new Array(rows).fill(0);
+			}
+			return arr;
+		}
+
+		function draw() {
+			background(0, 10, 0, 240);
+
+			// Draw digital rain in the background
+			drawDigitalRain();
+
+			// Draw grid
+			for (let i = 0; i < cols; i++) {
+				for (let j = 0; j < rows; j++) {
+					let x = i * resolution;
+					let y = j * resolution;
+
+					if (grid[i][j] == 1) {
+						// Calculate a pulsating effect
+						let brightness = map(sin(frameCount * 0.05), -1, 1, 170, 255);
+
+						// Draw live cell with glow effect
+						noStroke();
+						// Glow effect
+						fill(0, brightness, 0, 30);
+						rect(x, y, resolution + 4, resolution + 4);
+						fill(0, brightness, 0, 60);
+						rect(x, y, resolution + 2, resolution + 2);
+
+						// Cell itself
+						fill(0, brightness, 65);
+						rect(x, y, resolution, resolution);
+					} else {
+						// Draw grid lines for empty cells
+						stroke(0, 20, 0);
+						noFill();
+						rect(x, y, resolution, resolution);
+					}
+				}
+			}
+
+			// Update grid state if not paused (every 10 frames for better visibility)
+			if (!isPaused && frameCount % updateInterval === 0) {
+				let next = make2DArray(cols, rows);
+
+				// Compute next generation
+				for (let i = 0; i < cols; i++) {
+					for (let j = 0; j < rows; j++) {
+						let state = grid[i][j];
+
+						// Count live neighbors
+						let neighbors = countNeighbors(grid, i, j);
+
+						// Apply Game of Life rules
+						if (state == 0 && neighbors == 3) {
+							// Birth: Any dead cell with exactly three live neighbors becomes a live cell
+							next[i][j] = 1;
+						} else if (state == 1 && (neighbors < 2 || neighbors > 3)) {
+							// Death: Any live cell with fewer than two or more than three live neighbors dies
+							next[i][j] = 0;
+						} else {
+							// Survival: Any live cell with two or three live neighbors lives on to the next generation
+							next[i][j] = state;
+						}
+					}
+				}
+
+				// Update grid
+				grid = next;
+			}
+
+			frameCount++;
+		}
+
+		function countNeighbors(grid, x, y) {
+			let sum = 0;
+			for (let i = -1; i < 2; i++) {
+				for (let j = -1; j < 2; j++) {
+					// Handle edge wrapping
+					let col = (x + i + cols) % cols;
+					let row = (y + j + rows) % rows;
+
+					// Add up the eight surrounding cells
+					sum += grid[col][row];
+				}
+			}
+			// Subtract the center cell's state since we only want to count neighbors
+			sum -= grid[x][y];
+			return sum;
+		}
+
+		function mousePressed() {
+			// Toggle cells with mouse click
+			let i = floor(mouseX / resolution);
+			let j = floor(mouseY / resolution);
+
+			// Make sure we're within the grid
+			if (i >= 0 && i < cols && j >= 0 && j < rows) {
+				// Toggle the state
+				grid[i][j] = grid[i][j] ? 0 : 1;
+			}
+		}
+
+		function mouseDragged() {
+			// Add cells with mouse drag
+			let i = floor(mouseX / resolution);
+			let j = floor(mouseY / resolution);
+
+			// Make sure we're within the grid
+			if (i >= 0 && i < cols && j >= 0 && j < rows) {
+				// Set to live
+				grid[i][j] = 1;
+			}
+		}
+
+		function drawDigitalRain() {
+			// Draw Matrix-style digital rain
+			textFont('Courier New');
+
+			for (let i = 0; i < digitalRain.length; i++) {
+				let drop = digitalRain[i];
+
+				// Draw characters in the rain
+				for (let j = 0; j < drop.length; j++) {
+					// Variable opacity based on position
+					let alpha = map(j, 0, drop.length - 1, 255, 50);
+
+					// First character is brighter
+					if (j === 0) {
+						fill(180, 255, 180, alpha);
+					} else {
+						fill(0, 180, 0, alpha);
+					}
+
+					// Random character
+					let char = random(matrixChars);
+					textSize(resolution);
+					text(char, drop.x, drop.y - j * resolution);
+				}
+
+				// Move the rain drop
+				drop.y += drop.speed;
+
+				// Reset when it goes off screen
+				if (drop.y > height + drop.length * resolution) {
+					drop.y = random(-200, -100);
+					drop.x = random(width);
+					drop.length = random(5, 30);
+					drop.speed = random(5, 15);
+				}
+			}
+		}
+
+		function togglePause() {
+			isPaused = !isPaused;
+			document.getElementById('pauseBtn').textContent = isPaused ? 'RESUME' : 'PAUSE';
+		}
+
+		function clearGrid() {
+			grid = make2DArray(cols, rows);
+		}
+
+		function randomizeGrid(density = 0.3) {
+			for (let i = 0; i < cols; i++) {
+				for (let j = 0; j < rows; j++) {
+					grid[i][j] = random() < density ? 1 : 0;
+				}
+			}
+		}
+
+		function addPattern(pattern) {
+			// Center the pattern
+			let startX = floor(cols / 2 - pattern[0].length / 2);
+			let startY = floor(rows / 2 - pattern.length / 2);
+
+			// Add the pattern to the grid
+			for (let i = 0; i < pattern.length; i++) {
+				for (let j = 0; j < pattern[i].length; j++) {
+					if (startX + j >= 0 && startX + j < cols && startY + i >= 0 && startY + i < rows) {
+						grid[startX + j][startY + i] = pattern[i][j];
+					}
+				}
+			}
+		}
+	</script>
+</body>
+
+</html>
