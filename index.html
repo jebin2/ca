@@ -211,7 +211,7 @@
 
 			// Add speed slider
 			document.getElementById('speedSlider').addEventListener('input', (e) => {
-				updateInterval = 30-parseInt(e.target.value);
+				updateInterval = 30-parseInt(e.target.value) + 1;
 			});
 
 			// Initial grid randomization with a small chance of being alive
